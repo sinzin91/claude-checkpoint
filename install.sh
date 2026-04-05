@@ -21,13 +21,13 @@ fi
 
 mkdir -p "$COMMANDS_DIR" "$BIN_DIR"
 
-# Build or locate binary
-if [[ -f "$SCRIPT_DIR/target/release/claude-checkpoint" ]]; then
-  echo "Using pre-built binary..."
-  cp "$SCRIPT_DIR/target/release/claude-checkpoint" "$BIN_DIR/"
-elif command -v cargo &>/dev/null; then
+# Build binary (always rebuild if cargo available to avoid stale binaries)
+if command -v cargo &>/dev/null; then
   echo "Building claude-checkpoint..."
   (cd "$SCRIPT_DIR" && cargo build --release)
+  cp "$SCRIPT_DIR/target/release/claude-checkpoint" "$BIN_DIR/"
+elif [[ -f "$SCRIPT_DIR/target/release/claude-checkpoint" ]]; then
+  echo "Using pre-built binary (cargo not found, skipping rebuild)..."
   cp "$SCRIPT_DIR/target/release/claude-checkpoint" "$BIN_DIR/"
 else
   echo "ERROR: cargo not found and no pre-built binary available." >&2
@@ -49,17 +49,10 @@ rm -f "$CLAUDE_DIR/scripts/extract-messages.sh"
 
 echo ""
 echo "Installed claude-checkpoint:"
-echo "  /checkpoint [N]  — save last N exchanges (default: 100) before /clear"
+echo "  /checkpoint [N]  — save last N messages (default: 100) before /clear"
 echo "  /restore [path]  — resume from a checkpoint file"
 echo ""
 echo "Usage:"
 echo "  1. /checkpoint        — saves context to /tmp/checkpoint-*.md"
 echo "  2. /clear             — wipe context window"
 echo "  3. /restore           — pick up where you left off"
-
-# PATH check
-if ! echo "$PATH" | tr ':' '\n' | grep -q "$BIN_DIR"; then
-  echo ""
-  echo "NOTE: Add ~/.claude/bin to your PATH:"
-  echo "  export PATH=\"\$HOME/.claude/bin:\$PATH\""
-fi

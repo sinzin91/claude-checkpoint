@@ -18,7 +18,7 @@ struct Cli {
 enum Commands {
     /// Extract messages from a Claude Code session into a checkpoint file
     Extract {
-        /// Number of message exchanges to preserve
+        /// Number of messages to preserve
         #[arg(long, default_value = "100")]
         last: usize,
 

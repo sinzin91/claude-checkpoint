@@ -52,8 +52,8 @@ bash install.sh --uninstall
 ### Save a checkpoint
 
 ```
-/checkpoint        # save last 100 exchanges (default)
-/checkpoint 50     # save last 50 exchanges
+/checkpoint        # save last 100 messages (default)
+/checkpoint 50     # save last 50 messages
 ```
 
 Claude will:
