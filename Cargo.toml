@@ -1,0 +1,23 @@
+[package]
+name = "claude-checkpoint"
+version = "0.2.0"
+edition = "2021"
+license = "MIT"
+description = "Session checkpoint and restore for Claude Code"
+repository = "https://github.com/sinzin91/claude-checkpoint"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+anyhow = "1"
+walkdir = "2"
+dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = true

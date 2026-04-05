@@ -10,7 +10,7 @@ Claude Code's `/clear` command wipes the entire conversation context. This is ne
 
 ## How it works
 
-1. **`/checkpoint`** extracts the last N messages from your session's JSONL file, writes them to a markdown file, and asks Claude to fill in a structured summary (goal, files modified, key decisions, corrections, blockers, next step).
+1. **`/checkpoint`** runs a native Rust binary that extracts the last N messages from your session's JSONL file, writes them to a markdown file, and asks Claude to fill in a structured summary (goal, files modified, key decisions, corrections, blockers, next step).
 
 2. **`/clear`** wipes the context as usual.
 
@@ -18,13 +18,28 @@ Claude Code's `/clear` command wipes the entire conversation context. This is ne
 
 ## Install
 
+### From source (requires Rust)
+
 ```bash
 git clone https://github.com/sinzin91/claude-checkpoint.git
 cd claude-checkpoint
 bash install.sh
 ```
 
-This copies the slash commands and extraction script into `~/.claude/`.
+This builds the binary, copies it to `~/.claude/bin/`, and installs the slash commands.
+
+### Via cargo
+
+```bash
+cargo install --git https://github.com/sinzin91/claude-checkpoint
+```
+
+Then manually copy the slash commands:
+
+```bash
+cp commands/checkpoint.md ~/.claude/commands/
+cp commands/restore.md ~/.claude/commands/
+```
 
 ### Uninstall
 
@@ -57,6 +72,16 @@ Claude will:
 
 Claude will read the checkpoint and continue from where you left off.
 
+### CLI usage (standalone)
+
+```bash
+# Extract from most recent session
+claude-checkpoint extract --last 100 --output /tmp/checkpoint.md
+
+# Extract from a specific session
+claude-checkpoint extract --session ~/.claude/projects/-Users-me/abc123.jsonl
+```
+
 ## What gets saved
 
 The checkpoint file has two sections:
@@ -66,17 +91,17 @@ The checkpoint file has two sections:
 - Key decisions and corrections (these are lost first during compaction)
 - Working patterns, blocked items, next step
 
-**Raw Messages** — verbatim human/assistant exchanges extracted from the session JSONL. Tool-only messages (no text content) are filtered out to save space.
+**Raw Messages** — verbatim human/assistant exchanges extracted from the session JSONL. Tool-only messages (no text content) are filtered out to save space. Thinking blocks are excluded.
 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
-- `jq` (for JSON parsing of session files)
+- [Rust](https://rustup.rs) toolchain (for building from source)
 - macOS or Linux
 
 ## How it finds the session
 
-The extraction script looks in `~/.claude/projects/` for the most recently modified `.jsonl` file (excluding subagent sessions). You can also pass `--session /path/to/session.jsonl` explicitly.
+The binary looks in `~/.claude/projects/` for the most recently modified `.jsonl` file, walking up to 3 directories deep and excluding subagent sessions. You can also pass `--session /path/to/session.jsonl` explicitly.
 
 ## License
 
