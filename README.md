@@ -1,5 +1,9 @@
 # claude-checkpoint
 
+<p align="center">
+  <img src="assets/header.jpg" alt="claude-checkpoint" width="600">
+</p>
+
 [![CI](https://github.com/sinzin91/claude-checkpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/sinzin91/claude-checkpoint/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/claude-checkpoint.svg)](https://crates.io/crates/claude-checkpoint)
 [![GitHub Release](https://img.shields.io/github/v/release/sinzin91/claude-checkpoint)](https://github.com/sinzin91/claude-checkpoint/releases)
