@@ -23,7 +23,16 @@ Claude Code's `/clear` command wipes the entire conversation context. This is ne
 
 ## Install
 
-### Quick install (recommended)
+### Claude Code plugin (recommended)
+
+```bash
+claude plugin marketplace add sinzin91/claude-checkpoint
+claude plugin install claude-checkpoint
+```
+
+This installs the binary and slash commands in one step.
+
+### Via cargo
 
 ```bash
 cargo install claude-checkpoint
