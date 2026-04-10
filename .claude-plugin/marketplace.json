@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-checkpoint",
-  "description": "Session checkpoint and restore for Claude Code. Save conversation context before /clear, then seamlessly resume.",
+  "name": "sinzin91",
+  "description": "Claude Code plugins by sinzin91",
   "owner": {
     "name": "sinzin91",
     "email": "sinzin91@users.noreply.github.com"
