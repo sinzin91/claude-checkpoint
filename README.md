@@ -23,7 +23,7 @@ Claude Code's `/clear` command wipes the entire conversation context. This is ne
 
 ## Install
 
-### Via cargo
+### Quick install (recommended)
 
 ```bash
 cargo install claude-checkpoint
@@ -33,6 +33,7 @@ Then install the slash commands:
 
 ```bash
 git clone https://github.com/sinzin91/claude-checkpoint.git /tmp/claude-checkpoint
+mkdir -p ~/.claude/commands
 cp /tmp/claude-checkpoint/commands/checkpoint.md ~/.claude/commands/
 cp /tmp/claude-checkpoint/commands/restore.md ~/.claude/commands/
 rm -rf /tmp/claude-checkpoint
