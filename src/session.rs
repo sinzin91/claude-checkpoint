@@ -16,17 +16,14 @@ pub fn find_most_recent_session(session_dir: &Path) -> Result<PathBuf> {
         let path = entry.path();
 
         // Skip subagent sessions
-        if path
-            .components()
-            .any(|c| c.as_os_str() == "subagents")
-        {
+        if path.components().any(|c| c.as_os_str() == "subagents") {
             continue;
         }
 
-        if path.extension().map_or(false, |e| e == "jsonl") && path.is_file() {
+        if path.extension().is_some_and(|e| e == "jsonl") && path.is_file() {
             if let Ok(meta) = path.metadata() {
                 if let Ok(modified) = meta.modified() {
-                    if best.as_ref().map_or(true, |(t, _)| modified > *t) {
+                    if best.as_ref().is_none_or(|(t, _)| modified > *t) {
                         best = Some((modified, path.to_path_buf()));
                     }
                 }

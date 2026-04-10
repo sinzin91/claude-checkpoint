@@ -18,7 +18,10 @@ pub struct ExtractionStats {
 
 /// Parse a JSONL session file and extract the last `last_n` human/assistant messages
 /// that contain displayable text content.
-pub fn extract_messages(session_path: &Path, last_n: usize) -> Result<(Vec<ExtractedMessage>, ExtractionStats)> {
+pub fn extract_messages(
+    session_path: &Path,
+    last_n: usize,
+) -> Result<(Vec<ExtractedMessage>, ExtractionStats)> {
     let file = File::open(session_path)?;
     let file_size = file.metadata()?.len();
     let reader = BufReader::new(file);
@@ -90,7 +93,11 @@ pub fn extract_messages(session_path: &Path, last_n: usize) -> Result<(Vec<Extra
 }
 
 /// Render extracted messages into the checkpoint markdown format.
-pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats, last_n: usize) -> String {
+pub fn render_checkpoint(
+    messages: &[ExtractedMessage],
+    stats: &ExtractionStats,
+    last_n: usize,
+) -> String {
     let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
 
     let mut out = String::new();
@@ -128,7 +135,10 @@ pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats,
             Role::Human => "## Human",
             Role::Assistant => "## Assistant",
         };
-        out.push_str(&format!("---\n\n{role_header}\n\n{text}\n", text = msg.text));
+        out.push_str(&format!(
+            "---\n\n{role_header}\n\n{text}\n",
+            text = msg.text
+        ));
     }
 
     // Footer

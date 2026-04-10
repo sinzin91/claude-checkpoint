@@ -1,5 +1,10 @@
 # claude-checkpoint
 
+[![CI](https://github.com/sinzin91/claude-checkpoint/actions/workflows/ci.yml/badge.svg)](https://github.com/sinzin91/claude-checkpoint/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/claude-checkpoint.svg)](https://crates.io/crates/claude-checkpoint)
+[![GitHub Release](https://img.shields.io/github/v/release/sinzin91/claude-checkpoint)](https://github.com/sinzin91/claude-checkpoint/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Session checkpoint and restore for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Save your conversation context before `/clear`, then seamlessly resume where you left off.
 
 ## The problem
@@ -18,7 +23,22 @@ Claude Code's `/clear` command wipes the entire conversation context. This is ne
 
 ## Install
 
-### From source (requires Rust)
+### Via cargo (recommended)
+
+```bash
+cargo install claude-checkpoint
+```
+
+Then install the slash commands:
+
+```bash
+git clone https://github.com/sinzin91/claude-checkpoint.git /tmp/claude-checkpoint
+cp /tmp/claude-checkpoint/commands/checkpoint.md ~/.claude/commands/
+cp /tmp/claude-checkpoint/commands/restore.md ~/.claude/commands/
+rm -rf /tmp/claude-checkpoint
+```
+
+### From source
 
 ```bash
 git clone https://github.com/sinzin91/claude-checkpoint.git
@@ -28,18 +48,9 @@ bash install.sh
 
 This builds the binary, copies it to `~/.claude/bin/`, and installs the slash commands.
 
-### Via cargo
+### Pre-built binaries
 
-```bash
-cargo install --git https://github.com/sinzin91/claude-checkpoint
-```
-
-Then manually copy the slash commands:
-
-```bash
-cp commands/checkpoint.md ~/.claude/commands/
-cp commands/restore.md ~/.claude/commands/
-```
+Download from [GitHub Releases](https://github.com/sinzin91/claude-checkpoint/releases) for Linux (x86_64, aarch64) and macOS (x86_64, aarch64).
 
 ### Uninstall
 
