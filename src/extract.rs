@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
@@ -156,9 +156,15 @@ pub fn render_checkpoint(
     out
 }
 
-/// Write checkpoint content to a file.
+/// Write checkpoint content to a file with restricted permissions (0600).
 pub fn write_checkpoint(content: &str, output_path: &Path) -> Result<()> {
-    let mut file = File::create(output_path)?;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(output_path)?;
     file.write_all(content.as_bytes())?;
     Ok(())
 }

@@ -23,7 +23,7 @@ Claude Code's `/clear` command wipes the entire conversation context. This is ne
 
 ## Install
 
-### Via cargo (recommended)
+### Via cargo
 
 ```bash
 cargo install claude-checkpoint
