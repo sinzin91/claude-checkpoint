@@ -11,6 +11,7 @@ authors = ["Tenzin Wangdhen <sinzin91@users.noreply.github.com>"]
 categories = ["command-line-utilities"]
 keywords = ["claude", "cli", "checkpoint", "session", "ai"]
 rust-version = "1.82"
+exclude = ["assets/", ".github/", ".claude-plugin/", "install.sh"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

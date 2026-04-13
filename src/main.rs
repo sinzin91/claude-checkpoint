@@ -5,6 +5,7 @@ mod types;
 use anyhow::Result;
 use chrono::Local;
 use clap::{Parser, Subcommand};
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -20,6 +21,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Install /checkpoint and /restore slash commands into ~/.claude/commands
+    Install,
+
+    /// Remove slash commands and binary from ~/.claude
+    Uninstall,
+
     /// Extract messages from a Claude Code session into a checkpoint file
     Extract {
         /// Number of messages to preserve
@@ -40,6 +47,47 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Install => {
+            let home = dirs_home()?;
+            let commands_dir = home.join(".claude/commands");
+            fs::create_dir_all(&commands_dir)?;
+
+            fs::write(
+                commands_dir.join("checkpoint.md"),
+                include_str!("../commands/checkpoint.md"),
+            )?;
+            fs::write(
+                commands_dir.join("restore.md"),
+                include_str!("../commands/restore.md"),
+            )?;
+
+            eprintln!(
+                "Installed /checkpoint and /restore to {}",
+                commands_dir.display()
+            );
+            Ok(())
+        }
+        Commands::Uninstall => {
+            let home = dirs_home()?;
+            let claude_dir = home.join(".claude");
+            let files = [
+                claude_dir.join("commands/checkpoint.md"),
+                claude_dir.join("commands/restore.md"),
+            ];
+            for f in &files {
+                if f.exists() {
+                    fs::remove_file(f)?;
+                    eprintln!("Removed {}", f.display());
+                }
+            }
+            let legacy_bin = claude_dir.join("bin/claude-checkpoint");
+            if legacy_bin.exists() {
+                fs::remove_file(&legacy_bin)?;
+                eprintln!("Removed {}", legacy_bin.display());
+            }
+            eprintln!("Done. If installed via cargo, also run: cargo uninstall claude-checkpoint");
+            Ok(())
+        }
         Commands::Extract {
             last,
             output,
