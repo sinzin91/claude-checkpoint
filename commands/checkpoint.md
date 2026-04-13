@@ -6,7 +6,7 @@ You are creating a session checkpoint so the user can /clear and restore context
 
 1. **Run the extract script** to capture raw messages:
    ```bash
-   ~/.claude/bin/claude-checkpoint extract --last $ARGUMENTS --output /tmp/checkpoint-$(date +%Y%m%d-%H%M%S).md
+   claude-checkpoint extract --last $ARGUMENTS --output /tmp/checkpoint-$(date +%Y%m%d-%H%M%S).md
    ```
    If no argument provided, default to 100 messages.
 

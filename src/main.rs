@@ -73,7 +73,6 @@ fn main() -> Result<()> {
             let files = [
                 claude_dir.join("commands/checkpoint.md"),
                 claude_dir.join("commands/restore.md"),
-                claude_dir.join("bin/claude-checkpoint"),
             ];
             for f in &files {
                 if f.exists() {
@@ -81,7 +80,12 @@ fn main() -> Result<()> {
                     eprintln!("Removed {}", f.display());
                 }
             }
-            eprintln!("Done. You can also run: cargo uninstall claude-checkpoint");
+            let legacy_bin = claude_dir.join("bin/claude-checkpoint");
+            if legacy_bin.exists() {
+                fs::remove_file(&legacy_bin)?;
+                eprintln!("Removed {}", legacy_bin.display());
+            }
+            eprintln!("Done. If installed via cargo, also run: cargo uninstall claude-checkpoint");
             Ok(())
         }
         Commands::Extract {
