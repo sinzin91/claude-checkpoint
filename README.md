@@ -66,8 +66,8 @@ Grab a tarball from [GitHub Releases](https://github.com/sinzin91/claude-checkpo
 ### Uninstall
 
 ```bash
-claude-checkpoint uninstall    # removes slash commands and binary from ~/.claude
-cargo uninstall claude-checkpoint  # if installed via cargo
+claude-checkpoint uninstall        # removes slash commands from ~/.claude
+cargo uninstall claude-checkpoint  # removes the binary (if installed via cargo)
 ```
 
 ## Usage
