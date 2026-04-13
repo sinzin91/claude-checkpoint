@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::Utc;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
@@ -9,7 +9,6 @@ use crate::types::{ExtractedMessage, Role, SessionLine};
 /// Stats about the extraction, printed to stderr.
 pub struct ExtractionStats {
     pub session_name: String,
-    pub source_path: String,
     pub file_size: u64,
     pub total_user: usize,
     pub total_assistant: usize,
@@ -18,7 +17,10 @@ pub struct ExtractionStats {
 
 /// Parse a JSONL session file and extract the last `last_n` human/assistant messages
 /// that contain displayable text content.
-pub fn extract_messages(session_path: &Path, last_n: usize) -> Result<(Vec<ExtractedMessage>, ExtractionStats)> {
+pub fn extract_messages(
+    session_path: &Path,
+    last_n: usize,
+) -> Result<(Vec<ExtractedMessage>, ExtractionStats)> {
     let file = File::open(session_path)?;
     let file_size = file.metadata()?.len();
     let reader = BufReader::new(file);
@@ -75,11 +77,8 @@ pub fn extract_messages(session_path: &Path, last_n: usize) -> Result<(Vec<Extra
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
-    let source_path = session_path.to_string_lossy().to_string();
-
     let stats = ExtractionStats {
         session_name,
-        source_path,
         file_size,
         total_user,
         total_assistant,
@@ -90,7 +89,11 @@ pub fn extract_messages(session_path: &Path, last_n: usize) -> Result<(Vec<Extra
 }
 
 /// Render extracted messages into the checkpoint markdown format.
-pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats, last_n: usize) -> String {
+pub fn render_checkpoint(
+    messages: &[ExtractedMessage],
+    stats: &ExtractionStats,
+    last_n: usize,
+) -> String {
     let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
 
     let mut out = String::new();
@@ -101,7 +104,6 @@ pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats,
          - **Created:** {timestamp}\n\
          - **Session:** {session}\n\
          - **Messages preserved:** last ~{last_n} exchanges\n\
-         - **Source:** {source}\n\
          \n\
          > The SUMMARY section is a structured overview. The RAW MESSAGES section\n\
          > contains verbatim conversation history. Both are needed for full restoration.\n\
@@ -119,7 +121,6 @@ pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats,
         timestamp = timestamp,
         session = stats.session_name,
         last_n = last_n,
-        source = stats.source_path,
     ));
 
     // Messages
@@ -128,7 +129,10 @@ pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats,
             Role::Human => "## Human",
             Role::Assistant => "## Assistant",
         };
-        out.push_str(&format!("---\n\n{role_header}\n\n{text}\n", text = msg.text));
+        out.push_str(&format!(
+            "---\n\n{role_header}\n\n{text}\n",
+            text = msg.text
+        ));
     }
 
     // Footer
@@ -146,9 +150,15 @@ pub fn render_checkpoint(messages: &[ExtractedMessage], stats: &ExtractionStats,
     out
 }
 
-/// Write checkpoint content to a file.
+/// Write checkpoint content to a file with restricted permissions (0600).
+/// Uses create_new (O_CREAT|O_EXCL) to prevent symlink attacks in /tmp.
 pub fn write_checkpoint(content: &str, output_path: &Path) -> Result<()> {
-    let mut file = File::create(output_path)?;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(output_path)?;
     file.write_all(content.as_bytes())?;
     Ok(())
 }
@@ -270,7 +280,6 @@ mod tests {
         ];
         let stats = ExtractionStats {
             session_name: "test-session".to_string(),
-            source_path: "/tmp/test.jsonl".to_string(),
             file_size: 1024,
             total_user: 1,
             total_assistant: 1,

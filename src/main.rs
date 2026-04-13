@@ -8,7 +8,11 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "claude-checkpoint", version, about = "Session checkpoint and restore for Claude Code")]
+#[command(
+    name = "claude-checkpoint",
+    version,
+    about = "Session checkpoint and restore for Claude Code"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -55,13 +59,15 @@ fn main() -> Result<()> {
 
             // Print stats to stderr
             eprintln!("# Session: {}", stats.session_name);
-            eprintln!("# Source: {}", stats.source_path);
             eprintln!("# Size: {}", format_size(stats.file_size));
             eprintln!(
                 "# Total messages: {} user + {} assistant",
                 stats.total_user, stats.total_assistant
             );
-            eprintln!("# Extracted: {} messages with text content", stats.extracted);
+            eprintln!(
+                "# Extracted: {} messages with text content",
+                stats.extracted
+            );
 
             // Determine output path
             let output_path = output.unwrap_or_else(|| {

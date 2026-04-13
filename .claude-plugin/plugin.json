@@ -1,0 +1,9 @@
+{
+  "name": "claude-checkpoint",
+  "version": "0.2.0",
+  "description": "Session checkpoint and restore for Claude Code. Save conversation context before /clear, then seamlessly resume.",
+  "author": {
+    "name": "sinzin91",
+    "email": "sinzin91@users.noreply.github.com"
+  }
+}

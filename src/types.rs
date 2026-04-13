@@ -34,7 +34,9 @@ pub enum Content {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum ContentBlock {
-    Text { text: String },
+    Text {
+        text: String,
+    },
     Image {},
     ToolUse {},
     ToolResult {},
@@ -121,10 +123,7 @@ mod tests {
         let line: SessionLine = serde_json::from_str(json).unwrap();
         match line {
             SessionLine::Assistant(msg) => {
-                assert_eq!(
-                    msg.message.content.extract_text().unwrap(),
-                    "response here"
-                );
+                assert_eq!(msg.message.content.extract_text().unwrap(), "response here");
             }
             _ => panic!("expected Assistant"),
         }

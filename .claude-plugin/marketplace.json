@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "sinzin91",
+  "description": "Claude Code plugins by sinzin91",
+  "owner": {
+    "name": "sinzin91",
+    "email": "sinzin91@users.noreply.github.com"
+  },
+  "plugins": [
+    {
+      "name": "claude-checkpoint",
+      "version": "0.2.0",
+      "description": "Checkpoint and restore Claude Code sessions",
+      "source": "./",
+      "category": "utilities"
+    }
+  ]
+}

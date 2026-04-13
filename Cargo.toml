@@ -5,6 +5,12 @@ edition = "2021"
 license = "MIT"
 description = "Session checkpoint and restore for Claude Code"
 repository = "https://github.com/sinzin91/claude-checkpoint"
+homepage = "https://github.com/sinzin91/claude-checkpoint"
+readme = "README.md"
+authors = ["Tenzin Wangdhen <sinzin91@users.noreply.github.com>"]
+categories = ["command-line-utilities"]
+keywords = ["claude", "cli", "checkpoint", "session", "ai"]
+rust-version = "1.82"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
