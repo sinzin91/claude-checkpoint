@@ -98,7 +98,17 @@ fn main() -> Result<()> {
                 Some(p) => p,
                 None => {
                     let session_dir = dirs_home()?.join(".claude/projects");
-                    session::find_most_recent_session(&session_dir)?
+                    let cwd = std::env::current_dir()?;
+                    match session::find_session_for_cwd(&session_dir, &cwd)? {
+                        Some(p) => p,
+                        None => {
+                            eprintln!(
+                                "# No sessions for {} — falling back to global most-recent",
+                                cwd.display()
+                            );
+                            session::find_most_recent_session(&session_dir)?
+                        }
+                    }
                 }
             };
 
@@ -107,6 +117,7 @@ fn main() -> Result<()> {
 
             // Print stats to stderr
             eprintln!("# Session: {}", stats.session_name);
+            eprintln!("# Source: {}", session_path.display());
             eprintln!("# Size: {}", format_size(stats.file_size));
             eprintln!(
                 "# Total messages: {} user + {} assistant",
