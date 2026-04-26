@@ -40,6 +40,14 @@ enum Commands {
         /// Path to session JSONL file (default: most recent in ~/.claude/projects/)
         #[arg(long)]
         session: Option<PathBuf>,
+
+        /// Current Claude Code session ID. When provided, looks up
+        /// `<projects>/<mangled-cwd>/<id>.jsonl` exactly — preferred over
+        /// mtime-based lookup, which is racy with multiple concurrent
+        /// Claude Code instances. Typically passed as `${CLAUDE_SESSION_ID}`
+        /// from a slash command. Empty string is ignored.
+        #[arg(long)]
+        session_id: Option<String>,
     },
 }
 
@@ -92,21 +100,40 @@ fn main() -> Result<()> {
             last,
             output,
             session,
+            session_id,
         } => {
-            // Find session file
+            // Resolve session file. Priority:
+            //   1. --session <path>          explicit override wins
+            //   2. --session-id <id>         exact match within CWD project (walks up)
+            //   3. CWD-scoped most-recent    PR #4 behavior
+            //   4. Global most-recent        last-resort fallback
             let session_path = match session {
                 Some(p) => p,
                 None => {
                     let session_dir = dirs_home()?.join(".claude/projects");
                     let cwd = std::env::current_dir()?;
-                    match session::find_session_for_cwd(&session_dir, &cwd)? {
-                        Some(p) => p,
-                        None => {
+
+                    // Priority 2: exact session ID lookup.
+                    let id = session_id.unwrap_or_default();
+                    if let Some(p) = session::find_session_by_id(&session_dir, &cwd, &id)? {
+                        p
+                    } else {
+                        if !id.is_empty() {
                             eprintln!(
-                                "# No sessions for {} — falling back to global most-recent",
+                                "# Session ID {id} not found under {} — falling back to most-recent",
                                 cwd.display()
                             );
-                            session::find_most_recent_session(&session_dir)?
+                        }
+                        // Priority 3 → 4.
+                        match session::find_session_for_cwd(&session_dir, &cwd)? {
+                            Some(p) => p,
+                            None => {
+                                eprintln!(
+                                    "# No sessions for {} — falling back to global most-recent",
+                                    cwd.display()
+                                );
+                                session::find_most_recent_session(&session_dir)?
+                            }
                         }
                     }
                 }

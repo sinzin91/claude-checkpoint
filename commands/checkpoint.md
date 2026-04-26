@@ -6,9 +6,9 @@ You are creating a session checkpoint so the user can /clear and restore context
 
 1. **Run the extract script** to capture raw messages:
    ```bash
-   claude-checkpoint extract --last ${ARGUMENTS:-100} --output /tmp/checkpoint-$(date +%Y%m%d-%H%M%S).md
+   claude-checkpoint extract --session-id "${CLAUDE_SESSION_ID}" --last ${ARGUMENTS:-100} --output /tmp/checkpoint-$(date +%Y%m%d-%H%M%S).md
    ```
-   If no argument provided, default to 100 messages.
+   If no argument provided, default to 100 messages. The `${CLAUDE_SESSION_ID}` placeholder is substituted by Claude Code so the extract pins to *this* session, not whichever `.jsonl` was most recently touched.
 
 2. **Read the checkpoint file** that was just created.
 
