@@ -3,10 +3,17 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
 
+/// Walk depth for the global fallback lookup — covers `<projects>/<project>/<file>.jsonl`
+/// with headroom for legacy nesting.
+const GLOBAL_SEARCH_DEPTH: usize = 3;
+
+/// Walk depth for a single project dir — sessions live directly inside.
+const PROJECT_SEARCH_DEPTH: usize = 1;
+
 /// Find the most recently modified `.jsonl` session file in the Claude projects directory.
 /// Excludes subagent session files.
 pub fn find_most_recent_session(session_dir: &Path) -> Result<PathBuf> {
-    most_recent_jsonl(session_dir, 3)
+    most_recent_jsonl(session_dir, GLOBAL_SEARCH_DEPTH)
         .ok_or_else(|| anyhow!("No session files found in {}", session_dir.display()))
 }
 
@@ -14,6 +21,9 @@ pub fn find_most_recent_session(session_dir: &Path) -> Result<PathBuf> {
 /// `~/.claude/projects/`. The convention replaces `/` and `.` with `-`.
 ///
 /// Example: `/Users/tz/Projects/foo` → `-Users-tz-Projects-foo`
+///
+/// Unix-only: assumes `/`-separated paths. On Windows this will not match
+/// Claude Code's mangling and `find_session_for_cwd` will fall back.
 pub fn mangle_cwd(cwd: &Path) -> String {
     let s = cwd.to_string_lossy();
     s.chars()
@@ -22,15 +32,28 @@ pub fn mangle_cwd(cwd: &Path) -> String {
 }
 
 /// Find the most recent session for the project corresponding to `cwd`.
-/// Returns `Ok(None)` if the project dir does not exist or has no sessions —
-/// callers should fall back to the global lookup. Returns `Err` only on
-/// unexpected I/O failures.
+///
+/// Walks up the directory tree from `cwd` so running from a subdirectory
+/// (e.g. `~/Projects/foo/src`) still resolves to the project session in
+/// `-Users-tz-Projects-foo/`. Returns `Ok(None)` if no ancestor maps to an
+/// existing project dir with sessions — callers should fall back to the
+/// global lookup.
+///
+/// Best-effort: I/O failures surfaced by walkdir during traversal are
+/// swallowed and treated as "no session here," consistent with the
+/// fallback contract.
 pub fn find_session_for_cwd(session_dir: &Path, cwd: &Path) -> Result<Option<PathBuf>> {
-    let project_dir = session_dir.join(mangle_cwd(cwd));
-    if !project_dir.is_dir() {
-        return Ok(None);
+    let mut current = Some(cwd);
+    while let Some(dir) = current {
+        let project_dir = session_dir.join(mangle_cwd(dir));
+        if project_dir.is_dir() {
+            if let Some(session) = most_recent_jsonl(&project_dir, PROJECT_SEARCH_DEPTH) {
+                return Ok(Some(session));
+            }
+        }
+        current = dir.parent();
     }
-    Ok(most_recent_jsonl(&project_dir, 1))
+    Ok(None)
 }
 
 fn most_recent_jsonl(root: &Path, max_depth: usize) -> Option<PathBuf> {
@@ -165,6 +188,27 @@ mod tests {
         let cwd = Path::new("/Users/tz/Projects/nonexistent");
         let result = find_session_for_cwd(dir.path(), cwd).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_for_cwd_walks_up_from_subdirectory() {
+        // Running from ~/Projects/foo/src should still find the session
+        // for ~/Projects/foo, not fall back to global.
+        let dir = tempfile::tempdir().unwrap();
+        let projects = dir.path();
+
+        let project_root = Path::new("/Users/tz/Projects/foo");
+        let project_dir = projects.join(mangle_cwd(project_root));
+        fs::create_dir_all(&project_dir).unwrap();
+        let session = project_dir.join("foo.jsonl");
+        fs::write(&session, "{}").unwrap();
+
+        // Caller is two levels deep into the project.
+        let nested_cwd = Path::new("/Users/tz/Projects/foo/src/nested");
+        assert_eq!(
+            find_session_for_cwd(projects, nested_cwd).unwrap(),
+            Some(session)
+        );
     }
 
     #[test]
