@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "claude-checkpoint",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Checkpoint and restore Claude Code sessions",
       "source": "./",
       "category": "utilities"
