@@ -31,6 +31,15 @@ pub fn mangle_cwd(cwd: &Path) -> String {
         .collect()
 }
 
+/// Returns true if the string looks like a Claude Code session ID — a UUID-style
+/// token of hex digits and dashes. Rejects empty strings, path separators
+/// (`/`, `\`), `..`, and unsubstituted shell placeholders like
+/// `${CLAUDE_SESSION_ID}`. Used to fail closed on malformed or hostile inputs
+/// before they reach the filesystem.
+fn is_valid_session_id(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+}
+
 /// Find a session by exact ID, walking up from `cwd` through parent dirs.
 ///
 /// Each Claude Code session writes to `<projects>/<mangled-cwd>/<session-id>.jsonl`.
@@ -38,14 +47,16 @@ pub fn mangle_cwd(cwd: &Path) -> String {
 /// multiple Claude Code instances run in the same project — mtime ordering
 /// is racy in that scenario.
 ///
-/// Returns `Ok(None)` if no `<id>.jsonl` exists under any ancestor's project dir,
-/// so callers can fall back to mtime-based lookup.
+/// Returns `Ok(None)` if `session_id` is empty, fails validation
+/// (e.g. unsubstituted `${CLAUDE_SESSION_ID}` placeholder, path separators),
+/// or no `<id>.jsonl` exists under any ancestor's project dir — callers
+/// can fall back to mtime-based lookup.
 pub fn find_session_by_id(
     session_dir: &Path,
     cwd: &Path,
     session_id: &str,
 ) -> Result<Option<PathBuf>> {
-    if session_id.is_empty() {
+    if !is_valid_session_id(session_id) {
         return Ok(None);
     }
     let filename = format!("{session_id}.jsonl");
@@ -288,6 +299,42 @@ mod tests {
         let cwd = Path::new("/Users/tz/Projects/foo");
         let result = find_session_by_id(dir.path(), cwd, "").unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_by_id_rejects_unsubstituted_placeholder() {
+        // If Claude Code didn't expand the placeholder, the literal string
+        // arrives here. Must be treated as absent, not crashed on or used as
+        // a filename.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        let result = find_session_by_id(dir.path(), cwd, "${CLAUDE_SESSION_ID}").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_by_id_rejects_path_traversal() {
+        // A hostile or malformed ID containing `..` or `/` must not be
+        // turned into a path component. Returns None so the caller falls back.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        for bad in ["../etc/passwd", "..", "foo/bar", "a/b", "weird name"] {
+            let result = find_session_by_id(dir.path(), cwd, bad).unwrap();
+            assert!(result.is_none(), "expected None for {bad:?}");
+        }
+    }
+
+    #[test]
+    fn test_is_valid_session_id_accepts_uuid_shape_only() {
+        // Real Claude Code session IDs.
+        assert!(is_valid_session_id("9cce9c9f-b5bc-4a3c-a5ad-48926e45eccb"));
+        assert!(is_valid_session_id("deadbeef"));
+        // Reject everything else.
+        assert!(!is_valid_session_id(""));
+        assert!(!is_valid_session_id("${CLAUDE_SESSION_ID}"));
+        assert!(!is_valid_session_id("../etc"));
+        assert!(!is_valid_session_id("session_with_underscore"));
+        assert!(!is_valid_session_id("not a uuid"));
     }
 
     #[test]

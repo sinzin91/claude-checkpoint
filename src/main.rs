@@ -115,12 +115,13 @@ fn main() -> Result<()> {
 
                     // Priority 2: exact session ID lookup.
                     let id = session_id.unwrap_or_default();
+                    let id_was_valid = looks_like_session_id(&id);
                     if let Some(p) = session::find_session_by_id(&session_dir, &cwd, &id)? {
                         p
                     } else {
-                        if !id.is_empty() {
+                        if id_was_valid {
                             eprintln!(
-                                "# Session ID {id} not found under {} — falling back to most-recent",
+                                "# Session ID {id} not found under {} — falling back to CWD-scoped most-recent",
                                 cwd.display()
                             );
                         }
@@ -175,6 +176,13 @@ fn main() -> Result<()> {
 
 fn dirs_home() -> Result<PathBuf> {
     dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))
+}
+
+/// Mirrors session::is_valid_session_id so we can tell whether a non-match
+/// reflects a real lookup miss (warn) vs. an empty/unsubstituted placeholder
+/// (silent fall-through). Kept in sync with that function.
+fn looks_like_session_id(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
 }
 
 fn format_size(bytes: u64) -> String {
