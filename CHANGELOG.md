@@ -9,9 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **CWD-scoped session lookup**: `extract` (and therefore `/checkpoint`) no longer picks the globally most-recent `.jsonl` across all projects. It now resolves to the project dir for the current working directory via Claude Code's mangling convention (`/` and `.` → `-`), so a brief session in another project can no longer silently shadow your active working session ([#4](https://github.com/sinzin91/claude-checkpoint/pull/4))
+- **Deterministic session resolution via `${CLAUDE_SESSION_ID}`**: `/checkpoint` now passes the calling Claude Code instance's session ID through to the binary, which looks up `<projects>/<mangled-cwd>/<id>.jsonl` exactly. This eliminates the race condition when multiple Claude Code instances run in the same project dir — each one now extracts *its own* session, regardless of which `.jsonl` was most recently touched ([#6](https://github.com/sinzin91/claude-checkpoint/pull/6))
+- **CWD-scoped fallback**: When no session ID is provided, `extract` resolves to the project dir for the current working directory via Claude Code's mangling convention (`/` and `.` → `-`) — preventing a brief session in another project from silently shadowing your working session ([#4](https://github.com/sinzin91/claude-checkpoint/pull/4))
 - **Subdirectory execution**: Running from a subdir of a project (e.g. `~/Projects/foo/src`) walks up the parent chain to find the matching project dir instead of falling back to global lookup
 - **Visible source path**: Stderr now prints the resolved session path so wrong-session captures are immediately obvious
+
+### Added
+
+- `--session-id <id>` flag on `claude-checkpoint extract` for explicit session pinning. Validates UUID-shape input (hex + dashes), rejecting path-traversal attempts and unsubstituted shell placeholders.
+
+### Upgrade notes
+
+- **Re-run `claude-checkpoint install`** after upgrading to refresh the `/checkpoint` slash command. The fix only takes effect once the new template (which passes `${CLAUDE_SESSION_ID}` through to the binary) is in `~/.claude/commands/checkpoint.md`. Binary-only upgrades will keep the old command file and won't get the deterministic resolution.
 
 ## [0.2.0] - 2026-04-09
 
