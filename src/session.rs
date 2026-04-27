@@ -31,6 +31,46 @@ pub fn mangle_cwd(cwd: &Path) -> String {
         .collect()
 }
 
+/// Returns true if the string looks like a Claude Code session ID — a UUID-style
+/// token of hex digits and dashes. Rejects empty strings, path separators
+/// (`/`, `\`), `..`, and unsubstituted shell placeholders like
+/// `${CLAUDE_SESSION_ID}`. Used to fail closed on malformed or hostile inputs
+/// before they reach the filesystem.
+fn is_valid_session_id(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+}
+
+/// Find a session by exact ID, walking up from `cwd` through parent dirs.
+///
+/// Each Claude Code session writes to `<projects>/<mangled-cwd>/<session-id>.jsonl`.
+/// This is the only deterministic way to identify the *current* session when
+/// multiple Claude Code instances run in the same project — mtime ordering
+/// is racy in that scenario.
+///
+/// Returns `Ok(None)` if `session_id` is empty, fails validation
+/// (e.g. unsubstituted `${CLAUDE_SESSION_ID}` placeholder, path separators),
+/// or no `<id>.jsonl` exists under any ancestor's project dir — callers
+/// can fall back to mtime-based lookup.
+pub fn find_session_by_id(
+    session_dir: &Path,
+    cwd: &Path,
+    session_id: &str,
+) -> Result<Option<PathBuf>> {
+    if !is_valid_session_id(session_id) {
+        return Ok(None);
+    }
+    let filename = format!("{session_id}.jsonl");
+    let mut current = Some(cwd);
+    while let Some(dir) = current {
+        let candidate = session_dir.join(mangle_cwd(dir)).join(&filename);
+        if candidate.is_file() {
+            return Ok(Some(candidate));
+        }
+        current = dir.parent();
+    }
+    Ok(None)
+}
+
 /// Find the most recent session for the project corresponding to `cwd`.
 ///
 /// Walks up the directory tree from `cwd` so running from a subdirectory
@@ -188,6 +228,113 @@ mod tests {
         let cwd = Path::new("/Users/tz/Projects/nonexistent");
         let result = find_session_for_cwd(dir.path(), cwd).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_by_id_picks_exact_match_over_mtime() {
+        // Two sessions in the same project dir — older one is the "current"
+        // session per its ID. Mtime would pick the newer; ID lookup must pick
+        // the older one.
+        let dir = tempfile::tempdir().unwrap();
+        let projects = dir.path();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        let project_dir = projects.join(mangle_cwd(cwd));
+        fs::create_dir_all(&project_dir).unwrap();
+
+        let target_id = "9cce9c9f-b5bc-4a3c-a5ad-48926e45eccb";
+        let target = project_dir.join(format!("{target_id}.jsonl"));
+        fs::write(&target, "{}").unwrap();
+
+        thread::sleep(Duration::from_millis(50));
+
+        // Newer session that mtime would prefer.
+        let newer = project_dir.join("0582224a-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jsonl");
+        fs::write(&newer, "{}").unwrap();
+
+        // Mtime path picks newer.
+        assert_eq!(find_session_for_cwd(projects, cwd).unwrap(), Some(newer));
+
+        // ID path picks the exact match.
+        assert_eq!(
+            find_session_by_id(projects, cwd, target_id).unwrap(),
+            Some(target)
+        );
+    }
+
+    #[test]
+    fn test_find_session_by_id_walks_up_from_subdirectory() {
+        let dir = tempfile::tempdir().unwrap();
+        let projects = dir.path();
+        let project_root = Path::new("/Users/tz/Projects/foo");
+        let project_dir = projects.join(mangle_cwd(project_root));
+        fs::create_dir_all(&project_dir).unwrap();
+
+        let id = "deadbeef-dead-beef-dead-beefdeadbeef";
+        let session = project_dir.join(format!("{id}.jsonl"));
+        fs::write(&session, "{}").unwrap();
+
+        let nested = Path::new("/Users/tz/Projects/foo/src/nested");
+        assert_eq!(
+            find_session_by_id(projects, nested, id).unwrap(),
+            Some(session)
+        );
+    }
+
+    #[test]
+    fn test_find_session_by_id_returns_none_when_id_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        let projects = dir.path();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        let project_dir = projects.join(mangle_cwd(cwd));
+        fs::create_dir_all(&project_dir).unwrap();
+        fs::write(project_dir.join("real.jsonl"), "{}").unwrap();
+
+        let result = find_session_by_id(projects, cwd, "nonexistent-id").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_by_id_empty_id_returns_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        let result = find_session_by_id(dir.path(), cwd, "").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_by_id_rejects_unsubstituted_placeholder() {
+        // If Claude Code didn't expand the placeholder, the literal string
+        // arrives here. Must be treated as absent, not crashed on or used as
+        // a filename.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        let result = find_session_by_id(dir.path(), cwd, "${CLAUDE_SESSION_ID}").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_session_by_id_rejects_path_traversal() {
+        // A hostile or malformed ID containing `..` or `/` must not be
+        // turned into a path component. Returns None so the caller falls back.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = Path::new("/Users/tz/Projects/foo");
+        for bad in ["../etc/passwd", "..", "foo/bar", "a/b", "weird name"] {
+            let result = find_session_by_id(dir.path(), cwd, bad).unwrap();
+            assert!(result.is_none(), "expected None for {bad:?}");
+        }
+    }
+
+    #[test]
+    fn test_is_valid_session_id_accepts_uuid_shape_only() {
+        // Real Claude Code session IDs.
+        assert!(is_valid_session_id("9cce9c9f-b5bc-4a3c-a5ad-48926e45eccb"));
+        assert!(is_valid_session_id("deadbeef"));
+        // Reject everything else.
+        assert!(!is_valid_session_id(""));
+        assert!(!is_valid_session_id("${CLAUDE_SESSION_ID}"));
+        assert!(!is_valid_session_id("../etc"));
+        assert!(!is_valid_session_id("session_with_underscore"));
+        assert!(!is_valid_session_id("not a uuid"));
     }
 
     #[test]
