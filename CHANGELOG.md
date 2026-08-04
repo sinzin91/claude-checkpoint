@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Underscores in project paths broke exact session lookup**: `mangle_cwd` replaced `/` and `.` with `-` but not `_`, while Claude Code replaces all three. For any project under a path containing an underscore (e.g. `~/3_Resources/wiki`, `~/1_Projects/app`) the computed directory never exists, so `--session-id` missed **100% of the time** — not intermittently — and fell through to the mtime-based fallbacks. This defeated the guarantee 0.2.1 was released for.
+- **`--session-id` no longer degrades into a different session**: a valid session ID that cannot be resolved is now a hard error (exit 1) instead of a silent fallback to CWD-scoped or global most-recent. Checkpointing the wrong session produces a plausible-looking file containing an unrelated conversation, discovered only on restore — strictly worse than producing nothing.
+- **Lookup no longer depends on the mangling being right**: if the ancestor walk misses, `find_session_by_id` scans the project directories for `<id>.jsonl` directly. Session IDs are globally unique, so this is exact rather than heuristic, and it keeps resolution working if Claude Code's naming convention changes again.
+
 ## [0.2.1] - 2026-04-27
 
 ### Fixed

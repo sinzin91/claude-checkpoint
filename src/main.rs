@@ -2,7 +2,7 @@ mod extract;
 mod session;
 mod types;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::Local;
 use clap::{Parser, Subcommand};
 use std::fs;
@@ -104,9 +104,14 @@ fn main() -> Result<()> {
         } => {
             // Resolve session file. Priority:
             //   1. --session <path>          explicit override wins
-            //   2. --session-id <id>         exact match within CWD project (walks up)
+            //   2. --session-id <id>         exact match; hard error if not found
             //   3. CWD-scoped most-recent    PR #4 behavior
             //   4. Global most-recent        last-resort fallback
+            //
+            // A valid --session-id that cannot be resolved is fatal. It must not
+            // degrade into 3 or 4: the caller named a session, and checkpointing
+            // a different one produces a plausible file full of an unrelated
+            // conversation, discovered only on restore.
             let session_path = match session {
                 Some(p) => p,
                 None => {
@@ -120,10 +125,15 @@ fn main() -> Result<()> {
                         p
                     } else {
                         if id_was_valid {
-                            eprintln!(
-                                "# Session ID {id} not found under {} — falling back to CWD-scoped most-recent",
-                                cwd.display()
-                            );
+                            return Err(anyhow!(
+                                "session ID {id} not found.\n\
+                                 Looked under the project dir for {} and scanned every directory \
+                                 in {}.\n\
+                                 Refusing to fall back to a different session — pass \
+                                 --session <path> if you meant another one.",
+                                cwd.display(),
+                                session_dir.display()
+                            ));
                         }
                         // Priority 3 → 4.
                         match session::find_session_for_cwd(&session_dir, &cwd)? {
