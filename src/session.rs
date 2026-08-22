@@ -19,29 +19,33 @@ pub fn find_most_recent_session(session_dir: &Path) -> Result<PathBuf> {
 }
 
 /// Mangle an absolute path into the directory name Claude Code uses under
-/// `~/.claude/projects/`. The convention replaces `/`, `.` and `_` with `-`.
+/// `~/.claude/projects/`. The convention replaces **every non-alphanumeric
+/// character** with `-` — not just `/`, `.` and `_`.
 ///
-/// Example: `/Users/tz/Projects/foo`    → `-Users-tz-Projects-foo`
-/// Example: `/home/u/3_Resources/wiki`  → `-home-u-3-Resources-wiki`
+/// Example: `/Users/tz/Projects/foo`     → `-Users-tz-Projects-foo`
+/// Example: `/home/u/3_Resources/wiki`   → `-home-u-3-Resources-wiki`
+/// Example: `/home/u/My Project (old)`   → `-home-u-My-Project--old-`
 ///
-/// The underscore is not cosmetic. Mangled without it, a project path containing
-/// `_` yields a directory that never exists, so the exact-ID lookup misses 100%
-/// of the time for that user — not intermittently — and the caller falls back to
-/// a different session. `find_session_by_id` no longer relies on this function
-/// alone for exactly that reason.
+/// Getting this wrong is not cosmetic. A path whose mangling we compute
+/// incorrectly yields a directory that never exists, so the exact-ID lookup
+/// misses 100% of the time for that user — not intermittently — and the caller
+/// falls back to a different session. Underscores were the case that shipped
+/// broken; spaces and punctuation were the same bug one character further along.
+///
+/// Known limitation: Claude Code replaces per UTF-16 code unit, so a character
+/// outside the BMP (an emoji, say) becomes two `-` there and one here.
+///
+/// Known limitation: Claude Code truncates names longer than 200 characters and
+/// appends a hash of the original path. We do not reproduce that, so very deep
+/// project paths will not match here. `find_session_by_id` does not rely on this
+/// function alone for exactly that reason; `find_session_for_cwd` still does.
 ///
 /// Unix-only: assumes `/`-separated paths. On Windows this will not match
 /// Claude Code's mangling and `find_session_for_cwd` will fall back.
 pub fn mangle_cwd(cwd: &Path) -> String {
     let s = cwd.to_string_lossy();
     s.chars()
-        .map(|c| {
-            if c == '/' || c == '.' || c == '_' {
-                '-'
-            } else {
-                c
-            }
-        })
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect()
 }
 
@@ -88,9 +92,16 @@ pub fn find_session_by_id(
     }
 
     // Mangling-independent fallback: scan the project dirs for the ID directly.
+    //
+    // Sorted so the result is deterministic. Session IDs are globally unique, so
+    // a collision across two project dirs should not happen — but worktrees and
+    // resuming from a different cwd make it conceivable, and `read_dir` order is
+    // OS-dependent. Picking the lexicographically first is arbitrary but stable.
     if let Ok(entries) = fs::read_dir(session_dir) {
-        for entry in entries.flatten() {
-            let candidate = entry.path().join(&filename);
+        let mut dirs: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+        dirs.sort();
+        for dir in dirs {
+            let candidate = dir.join(&filename);
             if candidate.is_file() {
                 return Ok(Some(candidate));
             }
@@ -204,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mangle_cwd_replaces_slashes_dots_and_underscores() {
+    fn test_mangle_cwd_replaces_every_non_alphanumeric() {
         assert_eq!(
             mangle_cwd(Path::new("/Users/tz/Projects/foo")),
             "-Users-tz-Projects-foo"
@@ -227,6 +238,18 @@ mod tests {
             mangle_cwd(Path::new("/home/u/my_project/sub_dir")),
             "-home-u-my-project-sub-dir"
         );
+        // Same bug class as the underscore, one character further along:
+        // spaces and punctuation are non-alphanumeric and mangle to `-` too.
+        assert_eq!(
+            mangle_cwd(Path::new("/home/u/My Project (old)")),
+            "-home-u-My-Project--old-"
+        );
+        assert_eq!(
+            mangle_cwd(Path::new("/home/u/client+co/app@v2")),
+            "-home-u-client-co-app-v2"
+        );
+        // Non-ASCII is not alphanumeric for this purpose either.
+        assert_eq!(mangle_cwd(Path::new("/home/u/café")), "-home-u-caf-");
     }
 
     #[test]
@@ -246,6 +269,22 @@ mod tests {
         let cwd = Path::new("/somewhere/else/entirely");
         let found = find_session_by_id(projects, cwd, id).unwrap();
         assert_eq!(found, Some(session));
+    }
+
+    #[test]
+    fn test_find_session_by_id_scan_ignores_subagent_sessions() {
+        // Subagent transcripts live one level deeper. The scan is depth-1 and
+        // must not reach them — subagent sessions are excluded everywhere else.
+        let dir = tempfile::tempdir().unwrap();
+        let projects = dir.path();
+        let id = "0198f2ab-1c0b-7fa2-9d3e-4a5b6c7d8e9f";
+
+        let sub = projects.join("-home-u-proj/subagents");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(sub.join(format!("{id}.jsonl")), "{}").unwrap();
+
+        let found = find_session_by_id(projects, Path::new("/somewhere/else"), id).unwrap();
+        assert_eq!(found, None);
     }
 
     #[test]

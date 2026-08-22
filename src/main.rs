@@ -127,8 +127,8 @@ fn main() -> Result<()> {
                         if id_was_valid {
                             return Err(anyhow!(
                                 "session ID {id} not found.\n\
-                                 Looked under the project dir for {} and scanned every directory \
-                                 in {}.\n\
+                                 Looked under the project dir for {} and scanned the project \
+                                 directories in {}.\n\
                                  Refusing to fall back to a different session — pass \
                                  --session <path> if you meant another one.",
                                 cwd.display(),

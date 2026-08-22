@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`--session-id` no longer degrades into a different session**: a valid session ID that cannot be resolved is now a hard error (exit 1) instead of a silent fallback to CWD-scoped or global most-recent. Checkpointing the wrong session produces a plausible-looking file containing an unrelated conversation, discovered only on restore — strictly worse than producing nothing. An empty or unsubstituted `${CLAUDE_SESSION_ID}` is still treated as "no ID given" and falls back as before, so `/checkpoint` is unaffected. Scripts that relied on a bad `--session-id` still producing output will now see exit 1.
+
 ### Fixed
 
-- **Underscores in project paths broke exact session lookup**: `mangle_cwd` replaced `/` and `.` with `-` but not `_`, while Claude Code replaces all three. For any project under a path containing an underscore (e.g. `~/3_Resources/wiki`, `~/1_Projects/app`) the computed directory never exists, so `--session-id` missed **100% of the time** — not intermittently — and fell through to the mtime-based fallbacks. This defeated the guarantee 0.2.1 was released for.
-- **`--session-id` no longer degrades into a different session**: a valid session ID that cannot be resolved is now a hard error (exit 1) instead of a silent fallback to CWD-scoped or global most-recent. Checkpointing the wrong session produces a plausible-looking file containing an unrelated conversation, discovered only on restore — strictly worse than producing nothing.
+- **Project paths containing anything but letters and digits broke session lookup**: `mangle_cwd` replaced `/` and `.` with `-`, but Claude Code replaces **every non-alphanumeric character**. Any project under a path containing `_`, a space, or punctuation (e.g. `~/3_Resources/wiki`, `~/My Project (old)`) computed a directory that never exists, so lookup missed **100% of the time** — not intermittently — and fell through to the mtime-based fallbacks, returning an unrelated conversation. This defeated the guarantee 0.2.1 was released for. Note that Claude Code also truncates names over 200 characters and appends a hash; that is not reproduced here, and remains a known limitation of the CWD-scoped path.
 - **Lookup no longer depends on the mangling being right**: if the ancestor walk misses, `find_session_by_id` scans the project directories for `<id>.jsonl` directly. Session IDs are globally unique, so this is exact rather than heuristic, and it keeps resolution working if Claude Code's naming convention changes again.
+
+### Added
+
+- End-to-end CLI tests covering session resolution: exit codes, whether an output file is written, and that an unsubstituted placeholder still falls back silently.
 
 ## [0.2.1] - 2026-04-27
 
