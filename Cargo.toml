@@ -10,7 +10,7 @@ readme = "README.md"
 authors = ["Tenzin Wangdhen <sinzin91@users.noreply.github.com>"]
 categories = ["command-line-utilities"]
 keywords = ["claude", "cli", "checkpoint", "session", "ai"]
-rust-version = "1.82"
+rust-version = "1.85"
 exclude = ["assets/", ".github/", ".claude-plugin/", "install.sh"]
 
 [dependencies]
