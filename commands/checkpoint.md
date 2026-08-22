@@ -10,6 +10,8 @@ You are creating a session checkpoint so the user can /clear and restore context
    ```
    If no argument provided, default to 100 messages. The `${CLAUDE_SESSION_ID}` placeholder is substituted by Claude Code so the extract pins to *this* session, not whichever `.jsonl` was most recently touched.
 
+   **If the command exits non-zero, stop here.** It refuses to guess: a named session that cannot be found is an error rather than a checkpoint of someone else's conversation. Report the error to the user and let them re-run with `--session <path>` if they know which file they want. Do not continue to step 2 — there is no file to read.
+
 2. **Read the checkpoint file** that was just created.
 
 3. **Fill in the Summary section** by replacing `[PENDING — Claude generates this]` with a structured summary covering:
