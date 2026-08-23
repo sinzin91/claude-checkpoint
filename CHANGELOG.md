@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-08-23
 
 ### Changed
 
 - **`--session-id` no longer degrades into a different session**: a valid session ID that cannot be resolved is now a hard error (exit 1) instead of a silent fallback to CWD-scoped or global most-recent. Checkpointing the wrong session produces a plausible-looking file containing an unrelated conversation, discovered only on restore — strictly worse than producing nothing. An empty or unsubstituted `${CLAUDE_SESSION_ID}` is still treated as "no ID given" and falls back as before, so `/checkpoint` is unaffected. Scripts that relied on a bad `--session-id` still producing output will now see exit 1.
+- **Minimum supported Rust version is now 1.85** (was 1.82). The dependency tree already required it — the declared floor was unbuildable, failing on `clap_lex` with "feature `edition2024` is required" before compiling anything. CI now builds on the declared version so the two cannot drift apart ([#8](https://github.com/sinzin91/claude-checkpoint/pull/8)). Only affects building from source; released binaries are unaffected.
 
 ### Fixed
 
@@ -19,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - End-to-end CLI tests covering session resolution: exit codes, whether an output file is written, and that an unsubstituted placeholder still falls back silently.
+
+### Upgrade notes
+
+- **Re-run `claude-checkpoint install`** after upgrading. The `/checkpoint` command file changed: it now stops instead of trying to read a checkpoint that was never written when the binary refuses to resolve a session. A binary-only upgrade keeps the old command file and will report a confusing failure in that case.
+- If you script `extract --session-id`, note that an unresolvable ID now exits 1 and writes nothing, where it previously produced a checkpoint of a different session.
 
 ## [0.2.1] - 2026-04-27
 
@@ -57,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bash extraction**: Initial implementation using bash and jq
 - **Install script**: One-command setup with `install.sh`
 
+[0.3.0]: https://github.com/sinzin91/claude-checkpoint/releases/tag/v0.3.0
 [0.2.1]: https://github.com/sinzin91/claude-checkpoint/releases/tag/v0.2.1
 [0.2.0]: https://github.com/sinzin91/claude-checkpoint/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sinzin91/claude-checkpoint/releases/tag/v0.1.0
